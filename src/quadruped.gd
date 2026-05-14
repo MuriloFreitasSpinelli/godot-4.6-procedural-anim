@@ -4,6 +4,8 @@ class_name Quadruped
 @export var pelvis: Girdle
 @export var shoulder: Girdle
 @export var gait: Gait
+@export var run_gait: Gait
+@export var gait_crossfade_time: float = 0.3
 
 
 @export_group("Look At")
@@ -35,18 +37,31 @@ var _turn_input: float = 0.0
 var _lean_z: float = 0.0
 var _lean_bone_idx: int = -1
 var _look_at_turn: float = 0.0
+var _active_gait: Gait
+var _blend_t: float = 0.0
+var _blend_target: float = 0.0
+var _limb_gaits: Array = []
+var _limb_was_stepping: Array = []
 
 func _ready() -> void:
 	_yaw   = rotation.y
 	_pitch = rotation.x
-	for limb in [shoulder.left_limb, shoulder.right_limb, pelvis.left_limb, pelvis.right_limb]:
-		limb.gait = gait
+	_active_gait = gait
+	for i in 4:
+		var lg := Gait.new()
+		_apply_blend_to(lg)
+		_limb_gaits.append(lg)
+		_limb_was_stepping.append(false)
+		var limb := _get_limb(i)
+		if limb:
+			limb.gait = lg
 
 func _process(delta: float) -> void:
 	_handle_input(delta)
 	var dir := velocity.normalized() if velocity.length() > 0.01 else Vector3.ZERO
 	shoulder.update(delta, dir)
 	pelvis.update(delta, dir)
+	_update_blend(delta)
 	_update_cycle(delta)
 	_update_look_at_target(delta)
 	_update_pitch(delta)
@@ -73,33 +88,83 @@ func _get_limb(i: int) -> Limb:
 		3: return pelvis.right_limb
 	return null
 
+func _switch_gait(new_gait: Gait) -> void:
+	if new_gait == null or new_gait == _active_gait:
+		return
+	_active_gait = new_gait
+
 func _handle_input(delta: float) -> void:
+	var shift_held := Input.is_key_pressed(KEY_SHIFT) and run_gait != null
+	var over_walk_speed := velocity.length() > gait.move_speed
+
+	_blend_target = 1.0 if shift_held else 0.0
+
+	if shift_held:
+		_switch_gait(run_gait)
+	elif not over_walk_speed:
+		_switch_gait(gait)
+	# else: releasing shift but still fast — keep run gait until speed bleeds down
+
 	_turn_input = Input.get_axis("ui_right", "ui_left")
-	_yaw += _turn_input * gait.turn_speed * delta
+	_yaw += _turn_input * _active_gait.turn_speed * delta
 
 	var wish_dir := _flat_forward() * Input.get_axis("ui_down", "ui_up")
 	if wish_dir.length() > 0.01:
-		velocity = velocity.move_toward(wish_dir * gait.move_speed, gait.acceleration * delta)
+		var target_speed := run_gait.move_speed if shift_held else gait.move_speed
+		var step := gait.friction * delta if (not shift_held and over_walk_speed) else _active_gait.acceleration * delta
+		velocity = velocity.move_toward(wish_dir * target_speed, step)
 	else:
-		velocity = velocity.move_toward(Vector3.ZERO, gait.friction * delta)
+		velocity = velocity.move_toward(Vector3.ZERO, _active_gait.friction * delta)
 
 	global_position += velocity * delta
 	rotation.y = _yaw
 
+func _apply_blend_to(dst: Gait) -> void:
+	var t := _blend_t
+	if run_gait == null:
+		dst.stride          = gait.stride
+		dst.step_distance   = gait.step_distance
+		dst.step_duration   = gait.step_duration
+		dst.step_height     = gait.step_height
+		dst.cycle_step_time = gait.cycle_step_time
+		dst.curve_x         = gait.curve_x
+		dst.curve_y         = gait.curve_y
+		return
+	dst.stride          = lerpf(gait.stride,          run_gait.stride,          t)
+	dst.step_distance   = lerpf(gait.step_distance,   run_gait.step_distance,   t)
+	dst.step_duration   = lerpf(gait.step_duration,   run_gait.step_duration,   t)
+	dst.step_height     = lerpf(gait.step_height,     run_gait.step_height,     t)
+	dst.cycle_step_time = lerpf(gait.cycle_step_time, run_gait.cycle_step_time, t)
+	dst.curve_x = run_gait.curve_x if t >= 0.5 else gait.curve_x
+	dst.curve_y = run_gait.curve_y if t >= 0.5 else gait.curve_y
+
+func _update_blend(delta: float) -> void:
+	_blend_t = move_toward(_blend_t, _blend_target, delta / gait_crossfade_time)
+	for i in 4:
+		var limb := _get_limb(i)
+		if limb == null:
+			continue
+		var was: bool = _limb_was_stepping[i]
+		_limb_was_stepping[i] = limb.stepping
+		if limb.stepping and was:
+			continue  # mid-step: freeze params so step completes under outgoing gait
+		_apply_blend_to(_limb_gaits[i])
+
 func _update_cycle(delta: float) -> void:
-	if not gait or gait.cycle.is_empty():
+	if not _active_gait or _active_gait.cycle.is_empty():
 		return
 	for i in 4:
 		var l := _get_limb(i)
 		if l: l.can_step = false
-	var current := _get_limb(gait.cycle[_cycle_index])
+	var current := _get_limb(_active_gait.cycle[_cycle_index])
 	if not current:
 		return
 	current.can_step = true
 	_cycle_timer -= delta
 	if _cycle_timer <= 0.0:
-		_cycle_timer = gait.cycle_step_time
-		_cycle_index = (_cycle_index + 1) % gait.cycle.size()
+		var cycle_time := lerpf(gait.cycle_step_time, run_gait.cycle_step_time if run_gait else gait.cycle_step_time, _blend_t)
+		_cycle_timer = cycle_time
+		_cycle_index = (_cycle_index + 1) % _active_gait.cycle.size()
 
 func _update_look_at_target(delta: float) -> void:
 	if not is_instance_valid(look_at_target) or not look_at_target.is_inside_tree():

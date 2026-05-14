@@ -2,8 +2,9 @@
 
 [ext_resource type="Script" uid="uid://roa0oxll0dc7" path="res://src/quadruped.gd" id="1_0ctlm"]
 [ext_resource type="Texture2D" uid="uid://dtrjfhhocs2lq" path="res://src/assets/strider/CreatureDiff.png" id="1_42sdb"]
-[ext_resource type="Script" uid="uid://l324epe3xq0r" path="res://src/parts/gait.gd" id="2_808f7"]
+[ext_resource type="Resource" uid="uid://lnj82htt8j0" path="res://src/resources/walk.tres" id="2_0vw8k"]
 [ext_resource type="Texture2D" uid="uid://cg5gb8lneqedy" path="res://src/assets/strider/CreatureNormals.png" id="2_y1a6e"]
+[ext_resource type="Resource" uid="uid://do21cdskgvhrg" path="res://src/resources/gallop.tres" id="3_0vw8k"]
 [ext_resource type="Texture2D" uid="uid://c02pw23rhxtky" path="res://src/assets/strider/CreatureR.png" id="3_6i1il"]
 [ext_resource type="Script" uid="uid://c2kgsiclut26" path="res://src/utils/ik_target.gd" id="6_h1dtt"]
 [ext_resource type="Script" uid="uid://b1ikaafs5ix2r" path="res://src/parts/girdle.gd" id="6_h5jqy"]
@@ -11,19 +12,6 @@
 [ext_resource type="Script" uid="uid://bxxj4whg0sbg4" path="res://src/utils/ik_lead.gd" id="7_808f7"]
 [ext_resource type="Script" uid="uid://fv8enic5fvo8" path="res://src/utils/ik_root.gd" id="8_2jsl0"]
 [ext_resource type="Script" uid="uid://0bl8qb54vol3" path="res://src/camera_orbit.gd" id="9_7dxho"]
-
-[sub_resource type="Curve" id="Curve_2jsl0"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(1, 1), 1.4, 0.0, 0, 0]
-point_count = 2
-
-[sub_resource type="Curve" id="Curve_fp1tu"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.50220263, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 3
-
-[sub_resource type="Resource" id="Resource_vxix5"]
-script = ExtResource("2_808f7")
-curve_x = SubResource("Curve_2jsl0")
-curve_y = SubResource("Curve_fp1tu")
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_2diej"]
 resource_name = "Strider"
@@ -146,7 +134,9 @@ transform = Transform3D(0.99999994, 0, 0, 0, 0.999964, 0, 0, 0, 0.999964, 0, 0, 
 script = ExtResource("1_0ctlm")
 pelvis = NodePath("Controllers/Pelvis")
 shoulder = NodePath("Controllers/Shoulder")
-gait = SubResource("Resource_vxix5")
+gait = ExtResource("2_0vw8k")
+run_gait = ExtResource("3_0vw8k")
+gait_crossfade_time = 1.0
 look_at_target = NodePath("Body/LookAt")
 look_at_offset_y = 3.0
 lean_skeleton = NodePath("Skeleton3D")
