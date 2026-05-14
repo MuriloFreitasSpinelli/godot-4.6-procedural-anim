@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="Gait" format=3 uid="uid://do21cdskgvhrg"]
+
+[ext_resource type="Script" uid="uid://l324epe3xq0r" path="res://src/parts/gait.gd" id="1_gtjj6"]
+
+[sub_resource type="Curve" id="Curve_xcpnc"]
+_data = [Vector2(0, 0), 0.0, 1.4, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Curve" id="Curve_u0yw7"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.4977973, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[resource]
+script = ExtResource("1_gtjj6")
+move_speed = 10.0
+stride = 1.6
+step_distance = 1.5
+step_duration = 0.7
+step_height = 0.4
+curve_x = SubResource("Curve_xcpnc")
+curve_y = SubResource("Curve_u0yw7")
+cycle = Array[int]([2, 3, 1, 0])
+cycle_step_time = 0.02
